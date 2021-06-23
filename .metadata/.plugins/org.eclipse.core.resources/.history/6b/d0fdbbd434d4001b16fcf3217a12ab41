@@ -1,0 +1,17 @@
+package dataStructure.inheritance.polymorphism;
+
+public class Child extends Parent{
+
+	public Child(String name, int age) {
+		this.name = name;
+		this.age = age;
+	}
+	public void hi() {
+		System.out.println("안녕? 내 이름은 "+name+"이고, "+age+"살이야! 만나서반가워~");
+	}
+	
+	public static void main(String[] args) {
+		Child child = new Child("심드류아들",10);
+		child.hi();
+	}
+}

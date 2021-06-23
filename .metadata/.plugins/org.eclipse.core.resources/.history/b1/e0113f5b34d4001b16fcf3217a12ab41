@@ -1,0 +1,6 @@
+package dataStructure.inheritance.polymorphism;
+
+public class Child extends Parent{
+
+	
+}

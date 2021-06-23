@@ -1,0 +1,14 @@
+package dataStructure.inheritance.constructor;
+
+public class Alcohol {
+
+	private double frequency;
+	private double price;
+	private String flavor;
+	
+	public Alacohol(double frequency, double price, String flavor) {
+		this.frequency = frequency;
+		this.price = price;
+		this.flavor = flavor;
+	}
+}

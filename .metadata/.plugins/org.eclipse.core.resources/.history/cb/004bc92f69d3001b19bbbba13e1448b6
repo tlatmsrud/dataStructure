@@ -1,0 +1,14 @@
+package dataStructure.inheritance.constructor;
+
+public class Rum extends Alcohol{
+
+	private String rumType;
+
+	public Rum(String rumType, double frequency, double price, String flavor) {
+		this.rumType = rumType;
+		this.frequency = frequency;
+		this.price = price;
+		this.flavor = flavor;
+	}
+	
+}

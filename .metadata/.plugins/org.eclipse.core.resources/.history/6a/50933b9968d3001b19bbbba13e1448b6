@@ -1,0 +1,8 @@
+package dataStructure.inheritance.constructor;
+
+public class Alcohol {
+
+	private double frequency;
+	private double price;
+	private String flavor;
+}

@@ -1,6 +1,5 @@
 package dataStructure.generic;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 
 public class MyArrayList <T>{

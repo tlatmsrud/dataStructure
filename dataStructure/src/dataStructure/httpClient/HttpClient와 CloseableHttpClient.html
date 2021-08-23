@@ -1,0 +1,570 @@
+<h4 data-ke-size="size20"><b>1. 개요</b></h4>
+<p data-ke-size="size16">&nbsp;예전에 서비스 내에서 HTTP을 사용해 HR 시스템에서 정보를 가져오는 로직에 문제가 발생한 적이 있었다.</p>
+<p data-ke-size="size16">&nbsp;원인은 사용하는 HttpClient객체가 static으로 선언되어 있어 멀티 쓰레드 환경에서 통신이 꼬여버린 것이다.</p>
+<p data-ke-size="size16">&nbsp;해결방안으로 HttpClientBuilder를 사용해 PoolingHttpClientconnectionManager, requestConfig 객체를 주입받은&nbsp; &nbsp;CloseableHttpClient 객체를 싱글톤으로 등록 후 호출할때마다 재사용하는 방식을 사용했다.</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size16">&nbsp;그런데 다른 프로젝트의 SM업무를 맡던 도중 HTTP 통신할때마다 DefaultHttpClient 객체를 생성하고 있었다. 또한 인스턴스를 통신할때마다 생성하는 부분은 있지만 close시키는 부분이 없어서 DefaultHttpClient가 어떤녀석인지, 그리고 CloseableHttpClient와 무슨 차이점이 있는지 궁금해졌다.</p>
+<hr contenteditable="false" data-ke-type="horizontalRule" data-ke-style="style5" />
+<h4 data-ke-size="size20"><b>2. CloseableHttpClient와 DefaultHttpClient</b></h4>
+<p data-ke-size="size16">&nbsp; <b>이 두 클래스 모두 HttpClient 인터페이스의 구현클래스이다.</b> 하지만 이녀석들의 차이에 대해 상세하게 정리된 내용을 찾지못해 실제 테스트를 통해 알아보기로 했다.</p>
+<hr contenteditable="false" data-ke-type="horizontalRule" data-ke-style="style5" />
+<h4 data-ke-size="size20"><b>2.1. DefaultHttpClient, CloseableHttpClient 테스트코드 1.</b></h4>
+<p data-ke-size="size16">&nbsp;각각의 클래스에 DefaultHttpClient, CloseableHttpClient 인스턴스 생성 후 HTTP GET 통신을 하는 코드를 작성하였다.</p>
+<hr contenteditable="false" data-ke-type="horizontalRule" data-ke-style="style5" />
+<h4 data-ke-size="size20"><b>2.2. CloseableHttpClient</b></h4>
+<p data-ke-size="size16">DefaultHttpClient를 사용하여 HTTP GET 통신을 하는 코드이다.</p>
+<div class="colorscripter-code" style="color: #f0f0f0; font-family: Consolas, 'Liberation Mono', Menlo, Courier, monospace !important; position: relative !important; overflow: auto;">
+<table class="colorscripter-code-table" style="margin: 0; padding: 0; border: none; background-color: #272727; border-radius: 4px;" cellspacing="0" cellpadding="0" data-ke-align="alignLeft">
+<tbody>
+<tr>
+<td style="padding: 6px; border-right: 2px solid #4f4f4f;">
+<div style="margin: 0; padding: 0; word-break: normal; text-align: right; color: #aaa; font-family: Consolas, 'Liberation Mono', Menlo, Courier, monospace !important; line-height: 130%;">
+<div style="line-height: 130%;">1</div>
+<div style="line-height: 130%;">2</div>
+<div style="line-height: 130%;">3</div>
+<div style="line-height: 130%;">4</div>
+<div style="line-height: 130%;">5</div>
+<div style="line-height: 130%;">6</div>
+<div style="line-height: 130%;">7</div>
+<div style="line-height: 130%;">8</div>
+<div style="line-height: 130%;">9</div>
+<div style="line-height: 130%;">10</div>
+<div style="line-height: 130%;">11</div>
+<div style="line-height: 130%;">12</div>
+<div style="line-height: 130%;">13</div>
+<div style="line-height: 130%;">14</div>
+<div style="line-height: 130%;">15</div>
+<div style="line-height: 130%;">16</div>
+<div style="line-height: 130%;">17</div>
+<div style="line-height: 130%;">18</div>
+<div style="line-height: 130%;">19</div>
+<div style="line-height: 130%;">20</div>
+<div style="line-height: 130%;">21</div>
+<div style="line-height: 130%;">22</div>
+<div style="line-height: 130%;">23</div>
+<div style="line-height: 130%;">24</div>
+<div style="line-height: 130%;">25</div>
+<div style="line-height: 130%;">26</div>
+<div style="line-height: 130%;">27</div>
+<div style="line-height: 130%;">28</div>
+<div style="line-height: 130%;">29</div>
+<div style="line-height: 130%;">30</div>
+<div style="line-height: 130%;">31</div>
+<div style="line-height: 130%;">32</div>
+<div style="line-height: 130%;">33</div>
+<div style="line-height: 130%;">34</div>
+</div>
+</td>
+<td style="padding: 6px 0; text-align: left;">
+<div style="margin: 0; padding: 0; color: #f0f0f0; font-family: Consolas, 'Liberation Mono', Menlo, Courier, monospace !important; line-height: 130%;">
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;"><span style="color: #ff3399;">public</span>&nbsp;<span style="color: #ff3399;">class</span>&nbsp;UseHttpClient&nbsp;{</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #ff3399;">private</span>&nbsp;<span style="color: #ff3399;">static</span>&nbsp;<span style="color: #ff3399;">final</span>&nbsp;<span style="color: #4be6fa;">String</span>&nbsp;URL&nbsp;<span style="color: #0086b3;"></span><span style="color: #ff3399;">=</span>&nbsp;<span style="color: #ffd500;">"http://www.naver.com"</span>;</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #ff3399;">public</span>&nbsp;<span style="color: #ff3399;">static</span>&nbsp;<span style="color: #ff3399;">void</span>&nbsp;main(<span style="color: #4be6fa;">String</span>[]&nbsp;args)&nbsp;{</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;HttpClient&nbsp;httpClient&nbsp;<span style="color: #0086b3;"></span><span style="color: #ff3399;">=</span>&nbsp;<span style="color: #4be6fa;">null</span>;</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #ff3399;">try</span>&nbsp;{</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;httpClient&nbsp;<span style="color: #0086b3;"></span><span style="color: #ff3399;">=</span>&nbsp;<span style="color: #ff3399;">new</span>&nbsp;DefaultHttpClient();&nbsp;<span style="color: #999999;">//&nbsp;httpClient&nbsp;4.3버전&nbsp;이후&nbsp;deprecated&nbsp;처리.</span></div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;HttpGet&nbsp;httpGet&nbsp;<span style="color: #0086b3;"></span><span style="color: #ff3399;">=</span>&nbsp;<span style="color: #ff3399;">new</span>&nbsp;HttpGet(URL);</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;HttpResponse&nbsp;response&nbsp;<span style="color: #0086b3;"></span><span style="color: #ff3399;">=</span>&nbsp;httpClient.execute(httpGet);</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #4be6fa;">System</span>.<span style="color: #4be6fa;">out</span>.<span style="color: #4be6fa;">println</span>(<span style="color: #ffd500;">"::&nbsp;DefaultHttpClient&nbsp;Response&nbsp;::"</span>);</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #4be6fa;">System</span>.<span style="color: #4be6fa;">out</span>.<span style="color: #4be6fa;">println</span>(<span style="color: #ffd500;">"::&nbsp;response&nbsp;1&nbsp;result&nbsp;code&nbsp;:&nbsp;"</span><span style="color: #0086b3;"></span><span style="color: #ff3399;">+</span>response.getStatusLine().getStatusCode());</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;BufferedReader&nbsp;reader<span style="color: #0086b3;"></span><span style="color: #ff3399;">=</span>&nbsp;<span style="color: #ff3399;">new</span>&nbsp;BufferedReader(<span style="color: #ff3399;">new</span>&nbsp;InputStreamReader(response.getEntity().getContent()));</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #4be6fa;">String</span>&nbsp;inputLine;</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;StringBuffer&nbsp;responseBuf&nbsp;<span style="color: #0086b3;"></span><span style="color: #ff3399;">=</span>&nbsp;<span style="color: #ff3399;">new</span>&nbsp;StringBuffer();</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #ff3399;">while</span>((inputLine&nbsp;<span style="color: #0086b3;"></span><span style="color: #ff3399;">=</span>&nbsp;reader.readLine())&nbsp;<span style="color: #0086b3;"></span><span style="color: #ff3399;">!</span><span style="color: #0086b3;"></span><span style="color: #ff3399;">=</span>&nbsp;<span style="color: #4be6fa;">null</span>)&nbsp;{</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;responseBuf.append(inputLine);</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;reader.close();</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;<span style="color: #ff3399;">catch</span>&nbsp;(ClientProtocolException&nbsp;e)&nbsp;{</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #999999;">//&nbsp;TODO&nbsp;Auto-generated&nbsp;catch&nbsp;block</span></div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;e.printStackTrace();</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;<span style="color: #ff3399;">catch</span>&nbsp;(IOException&nbsp;e)&nbsp;{</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #999999;">//&nbsp;TODO&nbsp;Auto-generated&nbsp;catch&nbsp;block</span></div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;e.printStackTrace();</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;}</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">}</div>
+</div>
+<div style="text-align: right; margin-top: -13px; margin-right: 5px; font-size: 9px; font-style: italic;"><a style="color: #4f4f4ftext-decoration:none;" href="http://colorscripter.com/info#e" target="_blank" rel="noopener">Colored by Color Scripter</a></div>
+</td>
+<td style="vertical-align: bottom; padding: 0 2px 4px 0;"><a style="text-decoration: none; color: white;" href="http://colorscripter.com/info#e" target="_blank" rel="noopener"><span style="font-size: 9px; word-break: normal; background-color: #4f4f4f; color: white; border-radius: 10px; padding: 1px;">cs</span></a></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p data-ke-size="size16">17번째 라인부터는 응답 데이터를 읽어오는 부분인데 네이버 홈페이지 코드가 방대하게 나와서 굳이 출력하진 않았다.</p>
+<p data-ke-size="size16">중요한건 DefaultHttpClient 인스턴스를 사용해 HTTP 통신을 <b>한번</b> 했다는 점이다.</p>
+<hr contenteditable="false" data-ke-type="horizontalRule" data-ke-style="style5" />
+<h4 data-ke-size="size20"><b>2.2. CloseableHttpClient</b></h4>
+<p data-ke-size="size16">&nbsp;CloseableHttpClient를 사용하여 HTTP GET 통신을 하는 코드이다.</p>
+<div class="colorscripter-code" style="color: #f0f0f0; font-family: Consolas, 'Liberation Mono', Menlo, Courier, monospace !important; position: relative !important; overflow: auto;">
+<table class="colorscripter-code-table" style="margin: 0; padding: 0; border: none; background-color: #272727; border-radius: 4px;" cellspacing="0" cellpadding="0" data-ke-align="alignLeft">
+<tbody>
+<tr>
+<td style="padding: 6px; border-right: 2px solid #4f4f4f;">
+<div style="margin: 0; padding: 0; word-break: normal; text-align: right; color: #aaa; font-family: Consolas, 'Liberation Mono', Menlo, Courier, monospace !important; line-height: 130%;">
+<div style="line-height: 130%;">1</div>
+<div style="line-height: 130%;">2</div>
+<div style="line-height: 130%;">3</div>
+<div style="line-height: 130%;">4</div>
+<div style="line-height: 130%;">5</div>
+<div style="line-height: 130%;">6</div>
+<div style="line-height: 130%;">7</div>
+<div style="line-height: 130%;">8</div>
+<div style="line-height: 130%;">9</div>
+<div style="line-height: 130%;">10</div>
+<div style="line-height: 130%;">11</div>
+<div style="line-height: 130%;">12</div>
+<div style="line-height: 130%;">13</div>
+<div style="line-height: 130%;">14</div>
+<div style="line-height: 130%;">15</div>
+<div style="line-height: 130%;">16</div>
+<div style="line-height: 130%;">17</div>
+<div style="line-height: 130%;">18</div>
+<div style="line-height: 130%;">19</div>
+<div style="line-height: 130%;">20</div>
+<div style="line-height: 130%;">21</div>
+<div style="line-height: 130%;">22</div>
+<div style="line-height: 130%;">23</div>
+<div style="line-height: 130%;">24</div>
+<div style="line-height: 130%;">25</div>
+<div style="line-height: 130%;">26</div>
+<div style="line-height: 130%;">27</div>
+<div style="line-height: 130%;">28</div>
+<div style="line-height: 130%;">29</div>
+<div style="line-height: 130%;">30</div>
+<div style="line-height: 130%;">31</div>
+<div style="line-height: 130%;">32</div>
+<div style="line-height: 130%;">33</div>
+<div style="line-height: 130%;">34</div>
+<div style="line-height: 130%;">35</div>
+<div style="line-height: 130%;">36</div>
+<div style="line-height: 130%;">37</div>
+<div style="line-height: 130%;">38</div>
+<div style="line-height: 130%;">39</div>
+</div>
+</td>
+<td style="padding: 6px 0; text-align: left;">
+<div style="margin: 0; padding: 0; color: #f0f0f0; font-family: Consolas, 'Liberation Mono', Menlo, Courier, monospace !important; line-height: 130%;">
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;"><span style="color: #ff3399;">public</span>&nbsp;<span style="color: #ff3399;">class</span>&nbsp;UseCloseableHttpClient&nbsp;{</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #ff3399;">private</span>&nbsp;<span style="color: #ff3399;">static</span>&nbsp;<span style="color: #ff3399;">final</span>&nbsp;<span style="color: #4be6fa;">String</span>&nbsp;URL&nbsp;<span style="color: #0086b3;"></span><span style="color: #ff3399;">=</span>&nbsp;<span style="color: #ffd500;">"http://www.naver.com"</span>;</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #ff3399;">public</span>&nbsp;<span style="color: #ff3399;">static</span>&nbsp;<span style="color: #ff3399;">void</span>&nbsp;main(<span style="color: #4be6fa;">String</span>[]&nbsp;args)&nbsp;{</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;CloseableHttpClient&nbsp;httpClient&nbsp;<span style="color: #0086b3;"></span><span style="color: #ff3399;">=</span>&nbsp;<span style="color: #4be6fa;">null</span>;</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #ff3399;">try</span>&nbsp;{</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;httpClient&nbsp;<span style="color: #0086b3;"></span><span style="color: #ff3399;">=</span>&nbsp;HttpClients.createDefault();</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;HttpGet&nbsp;httpGet&nbsp;<span style="color: #0086b3;"></span><span style="color: #ff3399;">=</span>&nbsp;<span style="color: #ff3399;">new</span>&nbsp;HttpGet(URL);</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;CloseableHttpResponse&nbsp;response&nbsp;<span style="color: #0086b3;"></span><span style="color: #ff3399;">=</span>&nbsp;httpClient.execute(httpGet);</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #4be6fa;">System</span>.<span style="color: #4be6fa;">out</span>.<span style="color: #4be6fa;">println</span>(<span style="color: #ffd500;">"::&nbsp;CloseableHttpResponse&nbsp;::"</span>);</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #4be6fa;">System</span>.<span style="color: #4be6fa;">out</span>.<span style="color: #4be6fa;">println</span>(<span style="color: #ffd500;">"::&nbsp;response&nbsp;1&nbsp;result&nbsp;code&nbsp;:&nbsp;"</span><span style="color: #0086b3;"></span><span style="color: #ff3399;">+</span>response.getStatusLine().getStatusCode());</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;BufferedReader&nbsp;reader<span style="color: #0086b3;"></span><span style="color: #ff3399;">=</span>&nbsp;<span style="color: #ff3399;">new</span>&nbsp;BufferedReader(<span style="color: #ff3399;">new</span>&nbsp;InputStreamReader(response.getEntity().getContent()));</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #4be6fa;">String</span>&nbsp;inputLine;</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;StringBuffer&nbsp;responseBuf&nbsp;<span style="color: #0086b3;"></span><span style="color: #ff3399;">=</span>&nbsp;<span style="color: #ff3399;">new</span>&nbsp;StringBuffer();</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #ff3399;">while</span>((inputLine&nbsp;<span style="color: #0086b3;"></span><span style="color: #ff3399;">=</span>&nbsp;reader.readLine())&nbsp;<span style="color: #0086b3;"></span><span style="color: #ff3399;">!</span><span style="color: #0086b3;"></span><span style="color: #ff3399;">=</span>&nbsp;<span style="color: #4be6fa;">null</span>)&nbsp;{</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;responseBuf.append(inputLine);</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;reader.close();</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;<span style="color: #ff3399;">catch</span>&nbsp;(IOException&nbsp;e)&nbsp;{</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #999999;">//&nbsp;TODO&nbsp;Auto-generated&nbsp;catch&nbsp;block</span></div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;e.printStackTrace();</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;<span style="color: #ff3399;">finally</span>&nbsp;{</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #ff3399;">if</span>(httpClient&nbsp;<span style="color: #0086b3;"></span><span style="color: #ff3399;">!</span><span style="color: #0086b3;"></span><span style="color: #ff3399;">=</span>&nbsp;<span style="color: #4be6fa;">null</span>)&nbsp;{</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #ff3399;">try</span>&nbsp;{</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;httpClient.close();</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;<span style="color: #ff3399;">catch</span>&nbsp;(IOException&nbsp;e)&nbsp;{</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #999999;">//&nbsp;TODO&nbsp;Auto-generated&nbsp;catch&nbsp;block</span></div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;e.printStackTrace();</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;}</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">}</div>
+</div>
+<div style="text-align: right; margin-top: -13px; margin-right: 5px; font-size: 9px; font-style: italic;"><a style="color: #4f4f4ftext-decoration:none;" href="http://colorscripter.com/info#e" target="_blank" rel="noopener">Colored by Color Scripter</a></div>
+</td>
+<td style="vertical-align: bottom; padding: 0 2px 4px 0;"><a style="text-decoration: none; color: white;" href="http://colorscripter.com/info#e" target="_blank" rel="noopener"><span style="font-size: 9px; word-break: normal; background-color: #4f4f4f; color: white; border-radius: 10px; padding: 1px;">cs</span></a></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p data-ke-size="size16">마찬가지로 16번째 라인부터는 응답 데이터를 읽어오는 부분이다.</p>
+<p data-ke-size="size16">여기서도 중요한건 CloseableHttpClient 인스턴스를 사용해 <b>한번</b> 통신했다는 점이다.</p>
+<hr contenteditable="false" data-ke-type="horizontalRule" data-ke-style="style5" />
+<h4 data-ke-size="size20"><b>2.3. 첫번째 테스트로 인해 알게된 차이점</b></h4>
+<p data-ke-size="size16">&nbsp;첫번째 테스트로 인해 알게된 이 두 클래스의 차이점을 정리해보았다. 생성방식이 달랐고, CloseableHttpClient 클래스는 close 메서드가 있었다. <b>왜 있지??</b> 아직까지는 큰 차이를 느끼진 못해 다음 테스트를 진행하였다.</p>
+<table style="border-collapse: collapse; width: 86.7442%; height: 106px;" border="1" data-ke-align="alignLeft" data-ke-style="style2">
+<tbody>
+<tr>
+<td style="width: 28.3735%; text-align: center;">&nbsp;</td>
+<td style="width: 36.2824%;"><b> DefaultHttpClient</b></td>
+<td style="width: 35.344%;"><b>CloseableHttpClient</b></td>
+</tr>
+<tr>
+<td style="width: 28.3735%; text-align: center;">생성</td>
+<td style="width: 36.2824%;">new DefaultHttpClient()</td>
+<td style="width: 35.344%;">HttpClients.createDefault()</td>
+</tr>
+<tr>
+<td style="width: 28.3735%; text-align: center;">close 여부</td>
+<td style="width: 36.2824%;">X</td>
+<td style="width: 35.344%;">O</td>
+</tr>
+</tbody>
+</table>
+<hr contenteditable="false" data-ke-type="horizontalRule" data-ke-style="style5" />
+<h4 data-ke-size="size20"><b>3.1. DefaultHttpClient, CloseableHttpClient 테스트코드 2.</b></h4>
+<p data-ke-size="size16">&nbsp;<b>close라는 부분이 눈에 밟혀 각각의 인스턴스에서 HTTP 통신 메서드인 execute를 두번씩 호출</b>해보았다.</p>
+<hr contenteditable="false" data-ke-type="horizontalRule" data-ke-style="style5" />
+<h4 data-ke-size="size20"><b>3.2. DefaultHttpClient</b></h4>
+<div class="colorscripter-code" style="color: #f0f0f0; font-family: Consolas, 'Liberation Mono', Menlo, Courier, monospace !important; position: relative !important; overflow: auto;">
+<table class="colorscripter-code-table" style="margin: 0; padding: 0; border: none; background-color: #272727; border-radius: 4px;" cellspacing="0" cellpadding="0" data-ke-align="alignLeft">
+<tbody>
+<tr>
+<td style="padding: 6px; border-right: 2px solid #4f4f4f;">
+<div style="margin: 0; padding: 0; word-break: normal; text-align: right; color: #aaa; font-family: Consolas, 'Liberation Mono', Menlo, Courier, monospace !important; line-height: 130%;">
+<div style="line-height: 130%;">1</div>
+<div style="line-height: 130%;">2</div>
+<div style="line-height: 130%;">3</div>
+<div style="line-height: 130%;">4</div>
+<div style="line-height: 130%;">5</div>
+<div style="line-height: 130%;">6</div>
+<div style="line-height: 130%;">7</div>
+<div style="line-height: 130%;">8</div>
+<div style="line-height: 130%;">9</div>
+<div style="line-height: 130%;">10</div>
+<div style="line-height: 130%;">11</div>
+<div style="line-height: 130%;">12</div>
+<div style="line-height: 130%;">13</div>
+<div style="line-height: 130%;">14</div>
+<div style="line-height: 130%;">15</div>
+<div style="line-height: 130%;">16</div>
+<div style="line-height: 130%;">17</div>
+<div style="line-height: 130%;">18</div>
+<div style="line-height: 130%;">19</div>
+<div style="line-height: 130%;">20</div>
+<div style="line-height: 130%;">21</div>
+<div style="line-height: 130%;">22</div>
+<div style="line-height: 130%;">23</div>
+<div style="line-height: 130%;">24</div>
+<div style="line-height: 130%;">25</div>
+<div style="line-height: 130%;">26</div>
+<div style="line-height: 130%;">27</div>
+<div style="line-height: 130%;">28</div>
+<div style="line-height: 130%;">29</div>
+<div style="line-height: 130%;">30</div>
+<div style="line-height: 130%;">31</div>
+<div style="line-height: 130%;">32</div>
+<div style="line-height: 130%;">33</div>
+<div style="line-height: 130%;">34</div>
+<div style="line-height: 130%;">35</div>
+<div style="line-height: 130%;">36</div>
+</div>
+</td>
+<td style="padding: 6px 0; text-align: left;">
+<div style="margin: 0; padding: 0; color: #f0f0f0; font-family: Consolas, 'Liberation Mono', Menlo, Courier, monospace !important; line-height: 130%;">
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;"><span style="color: #ff3399;">public</span>&nbsp;<span style="color: #ff3399;">class</span>&nbsp;UseHttpClient&nbsp;{</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #ff3399;">private</span>&nbsp;<span style="color: #ff3399;">static</span>&nbsp;<span style="color: #ff3399;">final</span>&nbsp;<span style="color: #4be6fa;">String</span>&nbsp;URL&nbsp;<span style="color: #0086b3;"></span><span style="color: #ff3399;">=</span>&nbsp;<span style="color: #ffd500;">"http://www.naver.com"</span>;</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #ff3399;">public</span>&nbsp;<span style="color: #ff3399;">static</span>&nbsp;<span style="color: #ff3399;">void</span>&nbsp;main(<span style="color: #4be6fa;">String</span>[]&nbsp;args)&nbsp;{</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;HttpClient&nbsp;httpClient&nbsp;<span style="color: #0086b3;"></span><span style="color: #ff3399;">=</span>&nbsp;<span style="color: #4be6fa;">null</span>;</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #ff3399;">try</span>&nbsp;{</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;httpClient&nbsp;<span style="color: #0086b3;"></span><span style="color: #ff3399;">=</span>&nbsp;<span style="color: #ff3399;">new</span>&nbsp;DefaultHttpClient();&nbsp;<span style="color: #999999;">//&nbsp;httpClient&nbsp;4.3버전&nbsp;이후&nbsp;deprecated&nbsp;처리.</span></div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;HttpGet&nbsp;httpGet&nbsp;<span style="color: #0086b3;"></span><span style="color: #ff3399;">=</span>&nbsp;<span style="color: #ff3399;">new</span>&nbsp;HttpGet(URL);</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;HttpResponse&nbsp;response&nbsp;<span style="color: #0086b3;"></span><span style="color: #ff3399;">=</span>&nbsp;httpClient.execute(httpGet);</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;HttpResponse&nbsp;response2&nbsp;<span style="color: #0086b3;"></span><span style="color: #ff3399;">=</span>&nbsp;httpClient.execute(httpGet);&nbsp;<span style="color: #999999;">//&nbsp;추가한&nbsp;코드</span></div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #4be6fa;">System</span>.<span style="color: #4be6fa;">out</span>.<span style="color: #4be6fa;">println</span>(<span style="color: #ffd500;">"::&nbsp;DefaultHttpClient&nbsp;Response&nbsp;::"</span>);</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #4be6fa;">System</span>.<span style="color: #4be6fa;">out</span>.<span style="color: #4be6fa;">println</span>(<span style="color: #ffd500;">"::&nbsp;response&nbsp;1&nbsp;result&nbsp;code&nbsp;:&nbsp;"</span><span style="color: #0086b3;"></span><span style="color: #ff3399;">+</span>response.getStatusLine().getStatusCode());</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #4be6fa;">System</span>.<span style="color: #4be6fa;">out</span>.<span style="color: #4be6fa;">println</span>(<span style="color: #ffd500;">"::&nbsp;response&nbsp;2&nbsp;result&nbsp;code&nbsp;:&nbsp;"</span><span style="color: #0086b3;"></span><span style="color: #ff3399;">+</span>response2.getStatusLine().getStatusCode());&nbsp;<span style="color: #999999;">//&nbsp;추가한&nbsp;코드</span></div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;BufferedReader&nbsp;reader<span style="color: #0086b3;"></span><span style="color: #ff3399;">=</span>&nbsp;<span style="color: #ff3399;">new</span>&nbsp;BufferedReader(<span style="color: #ff3399;">new</span>&nbsp;InputStreamReader(response.getEntity().getContent()));</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #4be6fa;">String</span>&nbsp;inputLine;</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;StringBuffer&nbsp;responseBuf&nbsp;<span style="color: #0086b3;"></span><span style="color: #ff3399;">=</span>&nbsp;<span style="color: #ff3399;">new</span>&nbsp;StringBuffer();</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #ff3399;">while</span>((inputLine&nbsp;<span style="color: #0086b3;"></span><span style="color: #ff3399;">=</span>&nbsp;reader.readLine())&nbsp;<span style="color: #0086b3;"></span><span style="color: #ff3399;">!</span><span style="color: #0086b3;"></span><span style="color: #ff3399;">=</span>&nbsp;<span style="color: #4be6fa;">null</span>)&nbsp;{</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;responseBuf.append(inputLine);</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;reader.close();</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;<span style="color: #ff3399;">catch</span>&nbsp;(ClientProtocolException&nbsp;e)&nbsp;{</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #999999;">//&nbsp;TODO&nbsp;Auto-generated&nbsp;catch&nbsp;block</span></div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;e.printStackTrace();</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;<span style="color: #ff3399;">catch</span>&nbsp;(IOException&nbsp;e)&nbsp;{</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #999999;">//&nbsp;TODO&nbsp;Auto-generated&nbsp;catch&nbsp;block</span></div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;e.printStackTrace();</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;}</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">}</div>
+</div>
+<div style="text-align: right; margin-top: -13px; margin-right: 5px; font-size: 9px; font-style: italic;"><a style="color: #4f4f4ftext-decoration:none;" href="http://colorscripter.com/info#e" target="_blank" rel="noopener">Colored by Color Scripter</a></div>
+</td>
+<td style="vertical-align: bottom; padding: 0 2px 4px 0;"><a style="text-decoration: none; color: white;" href="http://colorscripter.com/info#e" target="_blank" rel="noopener"><span style="font-size: 9px; word-break: normal; background-color: #4f4f4f; color: white; border-radius: 10px; padding: 1px;">cs</span></a></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p data-ke-size="size16">13번 라인과 17번 라인에 호출 및 응답 코드를 출력하는 코드를 추가하였다.</p>
+<p data-ke-size="size16">실행 결과 다음과 같은 Exception이 발생하였다.</p>
+<p>[##_Image|kage@bnzTOl/btrcZuhM5rj/p0pjKeDG39irCF09SZBKG0/img.png|alignCenter|data-origin-width="885" data-origin-height="169" data-ke-mobilestyle="widthOrigin"|13번 라인에서 Exception 발생||_##]</p>
+<p data-ke-size="size16">예외 메시지는&nbsp;<b>"<span>연결이 여전히 할당되어 있습니다. 다른 연결을 할당하기 전에 연결을 해제해야 합니다." </span></b><span>라는 뜻이다.</span></p>
+<p data-ke-size="size16">12번 라인에서 수행된 연결이 아직 끊기지 않은 상태에서 13번 라인의 execute 코드가 실행되어 그런 것같다. 그렇다면 과연 언제 끊기는 걸까? 생명주기가 궁금해졌지만 이는 더 파고들어야 알수있을 것 같다. 일단 여기서 확인된 점은 <b>DefaultHttpClient 클래스는 생명주기가 끝나기 전까지 한번의 HTTP 요청을 수행할 수 있다는 것</b>이다.</p>
+<hr contenteditable="false" data-ke-type="horizontalRule" data-ke-style="style5" />
+<h4 data-ke-size="size20"><b>3.3. CloseableHttpClient</b></h4>
+<div class="colorscripter-code" style="color: #f0f0f0; font-family: Consolas, 'Liberation Mono', Menlo, Courier, monospace !important; position: relative !important; overflow: auto;">
+<table class="colorscripter-code-table" style="margin: 0; padding: 0; border: none; background-color: #272727; border-radius: 4px;" cellspacing="0" cellpadding="0" data-ke-align="alignLeft">
+<tbody>
+<tr>
+<td style="padding: 6px; border-right: 2px solid #4f4f4f;">
+<div style="margin: 0; padding: 0; word-break: normal; text-align: right; color: #aaa; font-family: Consolas, 'Liberation Mono', Menlo, Courier, monospace !important; line-height: 130%;">
+<div style="line-height: 130%;">1</div>
+<div style="line-height: 130%;">2</div>
+<div style="line-height: 130%;">3</div>
+<div style="line-height: 130%;">4</div>
+<div style="line-height: 130%;">5</div>
+<div style="line-height: 130%;">6</div>
+<div style="line-height: 130%;">7</div>
+<div style="line-height: 130%;">8</div>
+<div style="line-height: 130%;">9</div>
+<div style="line-height: 130%;">10</div>
+<div style="line-height: 130%;">11</div>
+<div style="line-height: 130%;">12</div>
+<div style="line-height: 130%;">13</div>
+<div style="line-height: 130%;">14</div>
+<div style="line-height: 130%;">15</div>
+<div style="line-height: 130%;">16</div>
+<div style="line-height: 130%;">17</div>
+<div style="line-height: 130%;">18</div>
+<div style="line-height: 130%;">19</div>
+<div style="line-height: 130%;">20</div>
+<div style="line-height: 130%;">21</div>
+<div style="line-height: 130%;">22</div>
+<div style="line-height: 130%;">23</div>
+<div style="line-height: 130%;">24</div>
+<div style="line-height: 130%;">25</div>
+<div style="line-height: 130%;">26</div>
+<div style="line-height: 130%;">27</div>
+<div style="line-height: 130%;">28</div>
+<div style="line-height: 130%;">29</div>
+<div style="line-height: 130%;">30</div>
+<div style="line-height: 130%;">31</div>
+<div style="line-height: 130%;">32</div>
+<div style="line-height: 130%;">33</div>
+<div style="line-height: 130%;">34</div>
+<div style="line-height: 130%;">35</div>
+<div style="line-height: 130%;">36</div>
+<div style="line-height: 130%;">37</div>
+<div style="line-height: 130%;">38</div>
+<div style="line-height: 130%;">39</div>
+<div style="line-height: 130%;">40</div>
+</div>
+</td>
+<td style="padding: 6px 0; text-align: left;">
+<div style="margin: 0; padding: 0; color: #f0f0f0; font-family: Consolas, 'Liberation Mono', Menlo, Courier, monospace !important; line-height: 130%;">
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;"><span style="color: #ff3399;">public</span>&nbsp;<span style="color: #ff3399;">class</span>&nbsp;UseCloseableHttpClient&nbsp;{</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #ff3399;">private</span>&nbsp;<span style="color: #ff3399;">static</span>&nbsp;<span style="color: #ff3399;">final</span>&nbsp;<span style="color: #4be6fa;">String</span>&nbsp;URL&nbsp;<span style="color: #0086b3;"></span><span style="color: #ff3399;">=</span>&nbsp;<span style="color: #ffd500;">"http://www.naver.com"</span>;</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #ff3399;">public</span>&nbsp;<span style="color: #ff3399;">static</span>&nbsp;<span style="color: #ff3399;">void</span>&nbsp;main(<span style="color: #4be6fa;">String</span>[]&nbsp;args)&nbsp;{</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;CloseableHttpClient&nbsp;httpClient&nbsp;<span style="color: #0086b3;"></span><span style="color: #ff3399;">=</span>&nbsp;<span style="color: #4be6fa;">null</span>;</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #ff3399;">try</span>&nbsp;{</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;httpClient&nbsp;<span style="color: #0086b3;"></span><span style="color: #ff3399;">=</span>&nbsp;HttpClients.createDefault();</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;HttpGet&nbsp;httpGet&nbsp;<span style="color: #0086b3;"></span><span style="color: #ff3399;">=</span>&nbsp;<span style="color: #ff3399;">new</span>&nbsp;HttpGet(URL);</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;CloseableHttpResponse&nbsp;response&nbsp;<span style="color: #0086b3;"></span><span style="color: #ff3399;">=</span>&nbsp;httpClient.execute(httpGet);</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;CloseableHttpResponse&nbsp;response2&nbsp;<span style="color: #0086b3;"></span><span style="color: #ff3399;">=</span>&nbsp;httpClient.execute(httpGet);&nbsp;<span style="color: #999999;">//&nbsp;추가한&nbsp;코드</span></div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #4be6fa;">System</span>.<span style="color: #4be6fa;">out</span>.<span style="color: #4be6fa;">println</span>(<span style="color: #ffd500;">"::&nbsp;CloseableHttpResponse&nbsp;::"</span>);</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #4be6fa;">System</span>.<span style="color: #4be6fa;">out</span>.<span style="color: #4be6fa;">println</span>(<span style="color: #ffd500;">"::&nbsp;response&nbsp;1&nbsp;result&nbsp;code&nbsp;:&nbsp;"</span><span style="color: #0086b3;"></span><span style="color: #ff3399;">+</span>response.getStatusLine().getStatusCode());</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #4be6fa;">System</span>.<span style="color: #4be6fa;">out</span>.<span style="color: #4be6fa;">println</span>(<span style="color: #ffd500;">"::&nbsp;response&nbsp;2&nbsp;result&nbsp;code&nbsp;:&nbsp;"</span><span style="color: #0086b3;"></span><span style="color: #ff3399;">+</span>response2.getStatusLine().getStatusCode());&nbsp;<span style="color: #999999;">//&nbsp;추가한&nbsp;코드</span></div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;BufferedReader&nbsp;reader<span style="color: #0086b3;"></span><span style="color: #ff3399;">=</span>&nbsp;<span style="color: #ff3399;">new</span>&nbsp;BufferedReader(<span style="color: #ff3399;">new</span>&nbsp;InputStreamReader(response.getEntity().getContent()));</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #4be6fa;">String</span>&nbsp;inputLine;</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;StringBuffer&nbsp;responseBuf&nbsp;<span style="color: #0086b3;"></span><span style="color: #ff3399;">=</span>&nbsp;<span style="color: #ff3399;">new</span>&nbsp;StringBuffer();</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #ff3399;">while</span>((inputLine&nbsp;<span style="color: #0086b3;"></span><span style="color: #ff3399;">=</span>&nbsp;reader.readLine())&nbsp;<span style="color: #0086b3;"></span><span style="color: #ff3399;">!</span><span style="color: #0086b3;"></span><span style="color: #ff3399;">=</span>&nbsp;<span style="color: #4be6fa;">null</span>)&nbsp;{</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;responseBuf.append(inputLine);</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;reader.close();</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;<span style="color: #ff3399;">catch</span>&nbsp;(IOException&nbsp;e)&nbsp;{</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #999999;">//&nbsp;TODO&nbsp;Auto-generated&nbsp;catch&nbsp;block</span></div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;e.printStackTrace();</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;<span style="color: #ff3399;">finally</span>&nbsp;{</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #ff3399;">if</span>(httpClient&nbsp;<span style="color: #0086b3;"></span><span style="color: #ff3399;">!</span><span style="color: #0086b3;"></span><span style="color: #ff3399;">=</span>&nbsp;<span style="color: #4be6fa;">null</span>)&nbsp;{</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #ff3399;">try</span>&nbsp;{</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;httpClient.close();</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;<span style="color: #ff3399;">catch</span>&nbsp;(IOException&nbsp;e)&nbsp;{</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #999999;">//&nbsp;TODO&nbsp;Auto-generated&nbsp;catch&nbsp;block</span></div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;e.printStackTrace();</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;}</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">}</div>
+</div>
+<div style="text-align: right; margin-top: -13px; margin-right: 5px; font-size: 9px; font-style: italic;"><a style="color: #4f4f4ftext-decoration:none;" href="http://colorscripter.com/info#e" target="_blank" rel="noopener">Colored by Color Scripter</a></div>
+</td>
+<td style="vertical-align: bottom; padding: 0 2px 4px 0;"><a style="text-decoration: none; color: white;" href="http://colorscripter.com/info#e" target="_blank" rel="noopener"><span style="font-size: 9px; word-break: normal; background-color: #4f4f4f; color: white; border-radius: 10px; padding: 1px;">cs</span></a></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p data-ke-size="size16">마찬가지로 11, 15번 라인에 통신 및 응답코드를 출력하는 코드를 추가하였다.</p>
+<p data-ke-size="size16">실행 결과, <b>예외가 발생하지 않으며, 두 요청 모두 response Code 200을 응답받았다.</b></p>
+<p data-ke-size="size16">그렇다면 이 CloseableHttpClient의 생명주기는 어떻게 될지가 궁금해졌다. 마침 <b>close</b> 메서드도 있으니 추가 테스트를 진행해보았다. 그런데 예상치 못한 예외 코드가 출력되었다.</p>
+<hr contenteditable="false" data-ke-type="horizontalRule" data-ke-style="style5" />
+<h4 data-ke-size="size20"><b>3.4. CloseableHttpClient close()</b></h4>
+<div class="colorscripter-code" style="color: #f0f0f0; font-family: Consolas, 'Liberation Mono', Menlo, Courier, monospace !important; position: relative !important; overflow: auto;">
+<table class="colorscripter-code-table" style="margin: 0; padding: 0; border: none; background-color: #272727; border-radius: 4px;" cellspacing="0" cellpadding="0" data-ke-align="alignLeft">
+<tbody>
+<tr>
+<td style="padding: 6px; border-right: 2px solid #4f4f4f;">
+<div style="margin: 0; padding: 0; word-break: normal; text-align: right; color: #aaa; font-family: Consolas, 'Liberation Mono', Menlo, Courier, monospace !important; line-height: 130%;">
+<div style="line-height: 130%;">1</div>
+<div style="line-height: 130%;">2</div>
+<div style="line-height: 130%;">3</div>
+<div style="line-height: 130%;">4</div>
+<div style="line-height: 130%;">5</div>
+<div style="line-height: 130%;">6</div>
+<div style="line-height: 130%;">7</div>
+<div style="line-height: 130%;">8</div>
+<div style="line-height: 130%;">9</div>
+<div style="line-height: 130%;">10</div>
+<div style="line-height: 130%;">11</div>
+<div style="line-height: 130%;">12</div>
+<div style="line-height: 130%;">13</div>
+<div style="line-height: 130%;">14</div>
+<div style="line-height: 130%;">15</div>
+<div style="line-height: 130%;">16</div>
+<div style="line-height: 130%;">17</div>
+<div style="line-height: 130%;">18</div>
+<div style="line-height: 130%;">19</div>
+<div style="line-height: 130%;">20</div>
+<div style="line-height: 130%;">21</div>
+<div style="line-height: 130%;">22</div>
+<div style="line-height: 130%;">23</div>
+<div style="line-height: 130%;">24</div>
+<div style="line-height: 130%;">25</div>
+<div style="line-height: 130%;">26</div>
+<div style="line-height: 130%;">27</div>
+<div style="line-height: 130%;">28</div>
+<div style="line-height: 130%;">29</div>
+<div style="line-height: 130%;">30</div>
+<div style="line-height: 130%;">31</div>
+<div style="line-height: 130%;">32</div>
+<div style="line-height: 130%;">33</div>
+<div style="line-height: 130%;">34</div>
+<div style="line-height: 130%;">35</div>
+<div style="line-height: 130%;">36</div>
+<div style="line-height: 130%;">37</div>
+<div style="line-height: 130%;">38</div>
+<div style="line-height: 130%;">39</div>
+<div style="line-height: 130%;">40</div>
+<div style="line-height: 130%;">41</div>
+</div>
+</td>
+<td style="padding: 6px 0; text-align: left;">
+<div style="margin: 0; padding: 0; color: #f0f0f0; font-family: Consolas, 'Liberation Mono', Menlo, Courier, monospace !important; line-height: 130%;">
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;"><span style="color: #ff3399;">public</span>&nbsp;<span style="color: #ff3399;">class</span>&nbsp;UseCloseableHttpClient&nbsp;{</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #ff3399;">private</span>&nbsp;<span style="color: #ff3399;">static</span>&nbsp;<span style="color: #ff3399;">final</span>&nbsp;<span style="color: #4be6fa;">String</span>&nbsp;URL&nbsp;<span style="color: #0086b3;"></span><span style="color: #ff3399;">=</span>&nbsp;<span style="color: #ffd500;">"http://www.naver.com"</span>;</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #ff3399;">public</span>&nbsp;<span style="color: #ff3399;">static</span>&nbsp;<span style="color: #ff3399;">void</span>&nbsp;main(<span style="color: #4be6fa;">String</span>[]&nbsp;args)&nbsp;{</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;CloseableHttpClient&nbsp;httpClient&nbsp;<span style="color: #0086b3;"></span><span style="color: #ff3399;">=</span>&nbsp;<span style="color: #4be6fa;">null</span>;</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #ff3399;">try</span>&nbsp;{</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;httpClient&nbsp;<span style="color: #0086b3;"></span><span style="color: #ff3399;">=</span>&nbsp;HttpClients.createDefault();</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;HttpGet&nbsp;httpGet&nbsp;<span style="color: #0086b3;"></span><span style="color: #ff3399;">=</span>&nbsp;<span style="color: #ff3399;">new</span>&nbsp;HttpGet(URL);</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;CloseableHttpResponse&nbsp;response&nbsp;<span style="color: #0086b3;"></span><span style="color: #ff3399;">=</span>&nbsp;httpClient.execute(httpGet);</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;httpClient.close();&nbsp;<span style="color: #999999;">//&nbsp;추가한&nbsp;코드</span></div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;CloseableHttpResponse&nbsp;response2&nbsp;<span style="color: #0086b3;"></span><span style="color: #ff3399;">=</span>&nbsp;httpClient.execute(httpGet);</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #4be6fa;">System</span>.<span style="color: #4be6fa;">out</span>.<span style="color: #4be6fa;">println</span>(<span style="color: #ffd500;">"::&nbsp;CloseableHttpResponse&nbsp;::"</span>);</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #4be6fa;">System</span>.<span style="color: #4be6fa;">out</span>.<span style="color: #4be6fa;">println</span>(<span style="color: #ffd500;">"::&nbsp;response&nbsp;1&nbsp;result&nbsp;code&nbsp;:&nbsp;"</span><span style="color: #0086b3;"></span><span style="color: #ff3399;">+</span>response.getStatusLine().getStatusCode());</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #4be6fa;">System</span>.<span style="color: #4be6fa;">out</span>.<span style="color: #4be6fa;">println</span>(<span style="color: #ffd500;">"::&nbsp;response&nbsp;2&nbsp;result&nbsp;code&nbsp;:&nbsp;"</span><span style="color: #0086b3;"></span><span style="color: #ff3399;">+</span>response2.getStatusLine().getStatusCode());</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;BufferedReader&nbsp;reader<span style="color: #0086b3;"></span><span style="color: #ff3399;">=</span>&nbsp;<span style="color: #ff3399;">new</span>&nbsp;BufferedReader(<span style="color: #ff3399;">new</span>&nbsp;InputStreamReader(response.getEntity().getContent()));</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #4be6fa;">String</span>&nbsp;inputLine;</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;StringBuffer&nbsp;responseBuf&nbsp;<span style="color: #0086b3;"></span><span style="color: #ff3399;">=</span>&nbsp;<span style="color: #ff3399;">new</span>&nbsp;StringBuffer();</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #ff3399;">while</span>((inputLine&nbsp;<span style="color: #0086b3;"></span><span style="color: #ff3399;">=</span>&nbsp;reader.readLine())&nbsp;<span style="color: #0086b3;"></span><span style="color: #ff3399;">!</span><span style="color: #0086b3;"></span><span style="color: #ff3399;">=</span>&nbsp;<span style="color: #4be6fa;">null</span>)&nbsp;{</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;responseBuf.append(inputLine);</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;reader.close();</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;<span style="color: #ff3399;">catch</span>&nbsp;(IOException&nbsp;e)&nbsp;{</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #999999;">//&nbsp;TODO&nbsp;Auto-generated&nbsp;catch&nbsp;block</span></div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;e.printStackTrace();</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;<span style="color: #ff3399;">finally</span>&nbsp;{</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #ff3399;">if</span>(httpClient&nbsp;<span style="color: #0086b3;"></span><span style="color: #ff3399;">!</span><span style="color: #0086b3;"></span><span style="color: #ff3399;">=</span>&nbsp;<span style="color: #4be6fa;">null</span>)&nbsp;{</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #ff3399;">try</span>&nbsp;{</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;httpClient.close();</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;<span style="color: #ff3399;">catch</span>&nbsp;(IOException&nbsp;e)&nbsp;{</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #999999;">//&nbsp;TODO&nbsp;Auto-generated&nbsp;catch&nbsp;block</span></div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;e.printStackTrace();</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">&nbsp;&nbsp;&nbsp;&nbsp;}</div>
+<div style="padding: 0 6px; white-space: pre; line-height: 130%;">}</div>
+</div>
+<div style="text-align: right; margin-top: -13px; margin-right: 5px; font-size: 9px; font-style: italic;"><a style="color: #4f4f4ftext-decoration:none;" href="http://colorscripter.com/info#e" target="_blank" rel="noopener">Colored by Color Scripter</a></div>
+</td>
+<td style="vertical-align: bottom; padding: 0 2px 4px 0;"><a style="text-decoration: none; color: white;" href="http://colorscripter.com/info#e" target="_blank" rel="noopener"><span style="font-size: 9px; word-break: normal; background-color: #4f4f4f; color: white; border-radius: 10px; padding: 1px;">cs</span></a></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p data-ke-size="size16">&nbsp;</p>
+<p>[##_Image|kage@b4Zcpx/btrcSsE3xH3/h9iSlYsF7K0OWLXnJUfid1/img.png|alignCenter|data-origin-width="943" data-origin-height="175" data-ke-mobilestyle="widthOrigin"|11번 라인에서 Exception 발생||_##]</p>
+<p data-ke-size="size16">커넥션 풀이 종료됐다는 예외였다!</p>
+<p data-ke-size="size16">아. 생성한 CloseableHttpClient 인스턴스는 기본적으로 커넥션 풀을 지원한다는 것을 알게되었고, <b>close 메서드는 이 인스턴스에 할당된 커넥션 풀을 close 시키는 것</b>이었다.</p>
+<p data-ke-size="size16">3.2 테스트에서 2번을 연속으로 호출했을 때 예외가 발생하지 않았던 이유도 요청을 커넥션 풀을 통해 요청이 처리되기 때문이었다.</p>
+<hr contenteditable="false" data-ke-type="horizontalRule" data-ke-style="style5" />
+<h4 data-ke-size="size20"><b>3.4. 두번째 테스트로 인해 알게된 차이점</b></h4>
+<table style="border-collapse: collapse; width: 86.7442%; height: 106px;" border="1" data-ke-align="alignLeft" data-ke-style="style2">
+<tbody>
+<tr>
+<td style="width: 28.3735%;">&nbsp;</td>
+<td style="width: 36.2824%;"><b>DefaultHttpClient</b></td>
+<td style="width: 35.344%;"><b>CloseableHttpClient</b></td>
+</tr>
+<tr>
+<td style="width: 28.3735%;">생성</td>
+<td style="width: 36.2824%;">new DefaultHttpClient()</td>
+<td style="width: 35.344%;">HttpClients.createDefault()</td>
+</tr>
+<tr>
+<td style="width: 28.3735%;">close 여부</td>
+<td style="width: 36.2824%;">X</td>
+<td style="width: 35.344%;">O</td>
+</tr>
+<tr>
+<td style="width: 28.3735%;">HTTP 통신 횟수</td>
+<td style="width: 36.2824%;">1</td>
+<td style="width: 35.344%;">ConnectionPool 설정에 따라 다름</td>
+</tr>
+<tr>
+<td style="width: 28.3735%;">ConnectionPool</td>
+<td style="width: 36.2824%;">X</td>
+<td style="width: 35.344%;">O</td>
+</tr>
+</tbody>
+</table>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size16">이제 DefaultHttpClient에서 발생했던 예외의 원인과 생명주기는 무엇이고, CloseableHttpClient의 커넥션 풀이 어디서 설정되는지 확인해야한다. 이는 생성부분의 내부 코드를 확인해야한다.</p>
+<p data-ke-size="size16">&nbsp;</p>

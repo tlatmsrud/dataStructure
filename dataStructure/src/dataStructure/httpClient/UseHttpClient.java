@@ -9,6 +9,7 @@ import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.util.EntityUtils;
 
 public class UseHttpClient {
 
@@ -22,11 +23,12 @@ public class UseHttpClient {
 			HttpGet httpGet = new HttpGet(URL);
 			
 			HttpResponse response = httpClient.execute(httpGet);
+			EntityUtils.consume(response.getEntity());
 			HttpResponse response2 = httpClient.execute(httpGet); // 추가한 코드
-			
+		
 			System.out.println(":: DefaultHttpClient Response ::");
 			System.out.println(":: response 1 result code : "+response.getStatusLine().getStatusCode());
-			System.out.println(":: response 2 result code : "+response2.getStatusLine().getStatusCode()); // 추가한 코드
+			//System.out.println(":: response 2 result code : "+response2.getStatusLine().getStatusCode()); // 추가한 코드
 
 			BufferedReader reader= new BufferedReader(new InputStreamReader(response.getEntity().getContent()));
 			String inputLine;
